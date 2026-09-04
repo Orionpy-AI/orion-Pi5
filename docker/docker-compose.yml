@@ -1,0 +1,24 @@
+services:
+  orion:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: orion-llm:latest
+    container_name: orion-llm
+    stdin_open: true   # keep stdin open for interactive chat
+    tty: true          # allocate a pseudo-TTY so Rich renders correctly
+    env_file:
+      - ../.env        # provides TAVILY_API_KEY
+    volumes:
+      - ~/models:/models:ro   # host model dir mounted read-only into container
+    environment:
+      - MODEL_PATH=/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "3.0"
+    restart: unless-stopped

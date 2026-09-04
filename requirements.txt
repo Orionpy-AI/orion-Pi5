@@ -1,0 +1,4 @@
+rich
+requests
+llama-cpp-python
+python-dotenv

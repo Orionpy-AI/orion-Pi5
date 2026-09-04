@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "tavily": {
+      "command": "python3",
+      "args": ["mcp_servers/mcp_tavily_server.py"]
+    },
+    "cloud": {
+      "command": "python3",
+      "args": ["mcp_servers/mcp_cloud_server.py"]
+    },
+    "rag": {
+      "command": "python3",
+      "args": ["mcp_servers/mcp_rag_server.py"]
+    }
+  }
+}

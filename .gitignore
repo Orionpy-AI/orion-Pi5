@@ -1,0 +1,8 @@
+models/
+*.env
+*.pyc
+__pycache__/
+docker/orion.db
+llama-server.log
+.vscode/
+*.gguf

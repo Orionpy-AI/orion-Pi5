@@ -4,15 +4,19 @@
 MCP server exposing live web search via Tavily.
 Launch via mcp_servers.json:
   "command": "python3", "args": ["mcp_servers/mcp_tavily_server.py"]
-Requires TAVILY_API_KEY in the environment or a .env file in the project root
-(search.py already handles that via python-dotenv).
+Requires TAVILY_API_KEY in the environment or a .env file in the project root.
 """
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # project root
+_this_dir = os.path.dirname(os.path.abspath(__file__))
+_proj_dir = os.path.dirname(_this_dir)
+if _proj_dir not in sys.path:
+    sys.path.insert(0, _proj_dir)
+if _this_dir not in sys.path:
+    sys.path.insert(0, _this_dir)
 
-from search import tavily_search
+from tools.search import tavily_search
 from mcp_stdio_base import run_server
 
 TOOLS = [

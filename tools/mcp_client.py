@@ -7,6 +7,7 @@ and tool execution.
 import json
 import os
 import subprocess
+import sys
 import threading
 from typing import Dict, List, Any, Optional
 
@@ -27,7 +28,10 @@ class MCPStdioServer:
         self.last_error: Optional[str] = None
 
     def start(self) -> bool:
-        cmd = [self.command] + self.args
+        command_bin = self.command
+        if self.command in ("python3", "python") and sys.executable:
+            command_bin = sys.executable
+        cmd = [command_bin] + self.args
         try:
             self.process = subprocess.Popen(
                 cmd,
@@ -214,7 +218,7 @@ class MCPManager:
             cmd = cfg.get("command")
             args = cfg.get("args", [])
             env = cfg.get("env", {})
-            cwd = cfg.get("cwd")
+            cwd = cfg.get("cwd") or os.path.dirname(os.path.abspath(self.config_file))
 
             if not cmd:
                 self.failed_servers[name] = "Missing 'command' field in config."

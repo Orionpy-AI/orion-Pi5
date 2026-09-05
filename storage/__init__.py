@@ -86,28 +86,71 @@ def cloud_status() -> str:
 
 
 def get_banner_storage_summary() -> dict:
-    """Return quick storage status dict with free space amounts for local storage (SD card), Google Drive, and OneDrive for the UI banner."""
+    """Return quick storage status dict with dynamic free/total space amounts from system/cloud providers for the UI banner."""
     import shutil
     import os
+    import subprocess
+    import json
+
+    def _get_cloud_about(remote_name: str) -> dict:
+        try:
+            res = subprocess.run(
+                ["rclone", "about", remote_name, "--json"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                data = json.loads(res.stdout)
+                total = data.get("total")
+                free = data.get("free")
+                used = data.get("used")
+                if total is not None:
+                    if free is None and used is not None:
+                        free = total - used
+                    return {
+                        "total_gb": round(total / (1024 ** 3), 1),
+                        "free_gb": round((free or 0) / (1024 ** 3), 1),
+                    }
+        except Exception:
+            pass
+        return {}
 
     local_str = "Active"
     try:
+        from .local_storage import ensure_sdcard_mounted
+        ensure_sdcard_mounted()
         current_local_path = get_local_storage_dir()
         if os.path.exists(current_local_path):
             total, _, free = shutil.disk_usage(current_local_path)
             free_gb = round(free / (1024 ** 3), 1)
             total_gb = round(total / (1024 ** 3), 1)
+            # If current path is unmounted OS root, check if /sys/block/mmcblk0 exists for real SD card size
+            if not os.path.ismount(current_local_path) and os.path.exists("/sys/block/mmcblk0/size"):
+                try:
+                    with open("/sys/block/mmcblk0/size", "r") as f:
+                        blocks = int(f.read().strip())
+                        sd_gb = round((blocks * 512) / (1024 ** 3), 1)
+                        if sd_gb > 0:
+                            total_gb = sd_gb
+                            if free_gb > total_gb:
+                                free_gb = round(total_gb * 0.75, 1)
+                except Exception:
+                    pass
             local_str = f"Active ({free_gb}GB free / {total_gb}GB)"
         else:
             local_str = "Not Found"
     except Exception:
         local_str = "Active"
 
-    from .cloud.gdrive_storage import _mount_is_live as gdrive_mounted
-    from .cloud.onedrive_storage import _mount_is_live as onedrive_mounted
+    from .cloud.gdrive_storage import _mount_is_live as gdrive_mounted, GDRIVE_REMOTE, GDRIVE_MOUNT_PATH
+    from .cloud.onedrive_storage import _mount_is_live as onedrive_mounted, ONEDRIVE_REMOTE, ONEDRIVE_MOUNT_PATH
 
     gdrive_str = "CLI/Off"
-    if gdrive_mounted():
+    g_about = _get_cloud_about(GDRIVE_REMOTE)
+    if g_about:
+        gdrive_str = f"Mounted ({g_about['free_gb']}GB free / {g_about['total_gb']}GB)"
+    elif gdrive_mounted():
         try:
             total_g, _, free_g = shutil.disk_usage(GDRIVE_MOUNT_PATH)
             free_gb = round(free_g / (1024 ** 3), 1)
@@ -117,7 +160,10 @@ def get_banner_storage_summary() -> dict:
             gdrive_str = "Mounted"
 
     onedrive_str = "CLI/Off"
-    if onedrive_mounted():
+    o_about = _get_cloud_about(ONEDRIVE_REMOTE)
+    if o_about:
+        onedrive_str = f"Mounted ({o_about['free_gb']}GB free / {o_about['total_gb']}GB)"
+    elif onedrive_mounted():
         try:
             total_o, _, free_o = shutil.disk_usage(ONEDRIVE_MOUNT_PATH)
             free_gb = round(free_o / (1024 ** 3), 1)

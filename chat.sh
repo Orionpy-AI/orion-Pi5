@@ -16,5 +16,8 @@ export MODEL_PATH="${MODEL_PATH:-$HOME/models/qwen2.5-0.5b-instruct-q4_k_m.gguf}
 export PORT="${PORT:-8000}"
 export MODEL_NAME="${MODEL_NAME:-Qwen2.5-0.5B-Instruct}"
 
+# Ensure storage mounts (SD Card & OneDrive daemon) are live
+bash "$SCRIPT_DIR/mount_drives.sh" 2>/dev/null || true
+
 # Run interactive Orion Agent CLI
 python3 "$SCRIPT_DIR/ui_cli.py"

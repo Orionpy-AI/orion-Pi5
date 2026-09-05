@@ -13,9 +13,14 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # project root
+_this_dir = os.path.dirname(os.path.abspath(__file__))
+_proj_dir = os.path.dirname(_this_dir)
+if _proj_dir not in sys.path:
+    sys.path.insert(0, _proj_dir)
+if _this_dir not in sys.path:
+    sys.path.insert(0, _this_dir)
 
-from rag_engine import rag_engine
+from tools.rag_engine import rag_engine
 from mcp_stdio_base import run_server
 
 TOOLS = [

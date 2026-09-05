@@ -83,12 +83,16 @@ _server_process = None
 
 def _start_server():
     global _server_process
+    threads = str(os.cpu_count() or 4)
     cmd = [
         sys.executable, "-m", "llama_cpp.server",
         "--model", MODEL_PATH,
         "--host", HOST,
         "--port", str(PORT),
         "--n_ctx", str(N_CTX),
+        "--n_threads", threads,
+        "--n_batch", "512",
+        "--mlock",
     ]
     log_file = open("/tmp/llama-server.log" if os.name != "nt" else "llama-server.log", "w")
     _server_process = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
@@ -96,7 +100,7 @@ def _start_server():
 
 def _check_server_running() -> bool:
     try:
-        r = requests.get(f"{BASE_URL}/v1/models", timeout=1)
+        r = requests.get(f"{BASE_URL}/v1/models", timeout=0.5)
         return r.status_code == 200
     except requests.exceptions.RequestException:
         return False
@@ -104,11 +108,11 @@ def _check_server_running() -> bool:
 
 def _wait_for_server(timeout: int = 120) -> bool:
     start = time.time()
-    with console.status("[bold cyan]Loading model into memory...", spinner="orion_orb"):
+    with console.status("[bold cyan]Loading model into RAM...", spinner="orion_orb"):
         while time.time() - start < timeout:
             if _check_server_running():
                 return True
-            time.sleep(1)
+            time.sleep(0.5)
     return False
 
 
@@ -143,7 +147,10 @@ def run_chat():
     elif mcp_manager.load_error:
         console.print(f"[dim]ℹ MCP: {mcp_manager.load_error}[/dim]")
 
-    # 2. Render initial banner
+    # 2. Check if llama-cpp server is already running for instant connection
+    is_running = _check_server_running()
+
+    # 3. Render banner
     rag_status = f"{rag_engine.total_files} files" if rag_engine.indexed_path else "Off"
     render_banner(
         memory_count=0,
@@ -152,12 +159,10 @@ def run_chat():
         tools_count=len(all_tools),
         model_name=MODEL_NAME,
     )
-    play_mascot_intro()
 
-    # 3. Check if server already running or start background server
-    if not _check_server_running():
+    if not is_running:
         if os.path.exists(MODEL_PATH):
-            console.print(f"[dim]Starting llama-cpp server on port {PORT}...[/dim]")
+            console.print(f"[dim]Starting llama-cpp server (4 CPU threads, mlock enabled)...[/dim]")
             _start_server()
             if not _wait_for_server():
                 console.print("[bold red]Server failed to start. Check llama-server.log[/bold red]")
@@ -165,9 +170,11 @@ def run_chat():
                 mcp_manager.shutdown()
                 sys.exit(1)
         else:
-            console.print(f"[dim]Note: Local model file '{MODEL_PATH}' not found. If running llama-server externally, connecting to {BASE_URL}...[/dim]")
+            console.print(f"[dim]Connecting to background llama-server at {BASE_URL}...[/dim]")
+    else:
+        play_mascot_intro(duration_seconds=0.3)
 
-    console.print("[bold bright_green]✦ Orion Agent Online.[/bold bright_green] Type your message or a command (/rag, /tools, /mcp, /edit, exit).\n")
+    console.print("[bold bright_green]✦ Orion Agent Online [Instant Connection].[/bold bright_green] Type your message or a command (/rag, /tools, /mcp, /edit, exit).\n")
 
     agent = OrionAgent(base_url=BASE_URL, model_name=MODEL_NAME)
     history = []
